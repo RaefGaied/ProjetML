@@ -28,6 +28,7 @@ https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia
 Make sure to download the dataset and place it in the appropriate folder if running the notebook locally.
 
 # Workflow
+
 ```mermaid
 graph TD
     A[User] --> B[Upload X-ray Image via Streamlit App]
@@ -43,7 +44,7 @@ graph TD
     I --> K
     J --> K
     K --> L[Show Accuracy, Confusion Matrix, etc.]
-    
+
     subgraph Training Phase
         M[Load Dataset from Kaggle] --> N[Preprocess Images]
         N --> O[Split into Train/Test]
