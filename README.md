@@ -27,6 +27,37 @@ https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia
 
 Make sure to download the dataset and place it in the appropriate folder if running the notebook locally.
 
+# Workflow
+```mermaid
+graph TD
+    A[User] --> B[Upload X-ray Image via Streamlit App]
+    B --> C{Preprocess Image}
+    C -->|Resize, Normalize| D[Load Pre-trained Models]
+    D --> E[CNN Model]
+    D --> F[Logistic Regression with PCA]
+    D --> G[SVM Model]
+    E --> H[CNN Prediction]
+    F --> I[Logistic Regression Prediction]
+    G --> J[SVM Prediction]
+    H --> K[Display Results]
+    I --> K
+    J --> K
+    K --> L[Show Accuracy, Confusion Matrix, etc.]
+    
+    subgraph Training Phase
+        M[Load Dataset from Kaggle] --> N[Preprocess Images]
+        N --> O[Split into Train/Test]
+        O --> P[Train CNN]
+        O --> Q[Train Logistic Regression]
+        O --> R[Train SVM]
+        P --> S[Evaluate CNN]
+        Q --> T[Evaluate Logistic Reg]
+        R --> U[Evaluate SVM]
+        S --> V[Save CNN Model]
+        T --> W[Save Logistic Reg Model & PCA]
+        U --> X[Save SVM Model]
+    end
+
 # Project Structure
 ```bash
 ├── models/
