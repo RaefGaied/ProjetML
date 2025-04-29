@@ -27,50 +27,6 @@ https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia
 
 Make sure to download the dataset and place it in the appropriate folder if running the notebook locally.
 
-## 🧭 Application Flowchart (Mermaid Diagram)
-
-Below is a visual representation of the prediction flow from uploading an image to storing the result and allowing user interaction.
-
-```mermaid
-flowchart TD
-    A[Start] --> B[User uploads an X-ray image]
-    B --> C[Image is preprocessed]
-    C --> D[Model predicts pneumonia]
-    D --> E{Prediction result}
-    E -->|Pneumonia detected| F["Return 'Pneumonia detected' response"]
-    E -->|No pneumonia| G["Return 'No pneumonia detected' response"]
-    F --> H[Store result in database]
-    G --> H
-    H --> I[Provide feedback to the user]
-    I --> J{User logged in?}
-    J -->|Yes| K[Allow user to see their prediction history]
-    J -->|No| L[Prompt user to log in or register]
-    K --> M[User views prediction history]
-    M --> N[User can analyze a new X-ray image or logout]
-    N --> O{New image or logout?}
-    O -->|New image| B
-    O -->|Logout| P[User logs out]
-    L --> Q[User logs in or registers]
-    Q --> K
-
-    style A fill:#00ff00,stroke:#000000,stroke-width:2px
-    style B fill:#ffff00,stroke:#000000,stroke-width:2px
-    style C fill:#ffff00,stroke:#000000,stroke-width:2px
-    style D fill:#ffff00,stroke:#000000,stroke-width:2px
-    style E fill:#ffcc00,stroke:#000000,stroke-width:2px
-    style F fill:#ffcc00,stroke:#000000,stroke-width:2px
-    style G fill:#ffcc00,stroke:#000000,stroke-width:2px
-    style H fill:#ffff00,stroke:#000000,stroke-width:2px
-    style I fill:#ffff00,stroke:#000000,stroke-width:2px
-    style J fill:#ffcc00,stroke:#000000,stroke-width:2px
-    style K fill:#ffff00,stroke:#000000,stroke-width:2px
-    style L fill:#ffff00,stroke:#000000,stroke-width:2px
-    style M fill:#ffff00,stroke:#000000,stroke-width:2px
-    style N fill:#ffff00,stroke:#000000,stroke-width:2px
-    style O fill:#ffcc00,stroke:#000000,stroke-width:2px
-    style P fill:#ff0000,stroke:#000000,stroke-width:2px
-    style Q fill:#ffff00,stroke:#000000,stroke-width:2px
-
 # Project Structure
 ```bash
 ├── models/
