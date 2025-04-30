@@ -635,7 +635,22 @@ def load_model(model_type='cnn'):
                 st.info("Please make sure the model file exists in the models directory")
                 return None
             
-            model = tf.keras.models.load_model(model_path)
+            # Suppress HDF5 version warning
+            import warnings
+            warnings.filterwarnings('ignore', category=UserWarning, module='h5py')
+            
+            # Load model with custom_objects to handle version incompatibilities
+            model = tf.keras.models.load_model(
+                model_path,
+                custom_objects={
+                    'InputLayer': tf.keras.layers.InputLayer,
+                    'Conv2D': tf.keras.layers.Conv2D,
+                    'MaxPooling2D': tf.keras.layers.MaxPooling2D,
+                    'Flatten': tf.keras.layers.Flatten,
+                    'Dense': tf.keras.layers.Dense,
+                    'Dropout': tf.keras.layers.Dropout
+                }
+            )
             st.success("CNN model loaded successfully!")
             return model
             
