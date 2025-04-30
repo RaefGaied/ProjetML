@@ -587,21 +587,75 @@ def validate_image(image):
     except Exception as e:
         return False, f"Error processing image: {str(e)}"
 
+# Check models directory and files
+def check_models():
+    """Check if models directory and required model files exist"""
+    models_dir = 'models'
+    required_files = [
+        'cnn_model.h5',
+        'logistic_regression_model.pkl',
+        'pca_transformer.pkl'
+    ]
+    
+    if not os.path.exists(models_dir):
+        st.error(f"Models directory not found at {models_dir}")
+        st.info("Please create a 'models' directory and add your model files")
+        return False
+        
+    missing_files = []
+    for file in required_files:
+        if not os.path.exists(os.path.join(models_dir, file)):
+            missing_files.append(file)
+    
+    if missing_files:
+        st.error("Missing model files:")
+        for file in missing_files:
+            st.error(f"- {file}")
+        st.info("Please make sure all required model files are present in the models directory")
+        return False
+    
+    return True
+
+# Check models at startup
+if not check_models():
+    st.warning("Some model files are missing. The application may not work correctly.")
+
 # Charger le modèle au démarrage de l'application
 @st.cache_resource
 def load_model(model_type='cnn'):
+    """Load the selected model and return it"""
     try:
+        st.write(f"Loading {model_type} model...")
+        
         if model_type == 'cnn':
-            model = tf.keras.models.load_model('models/cnn_model.h5')
+            model_path = 'models/cnn_model.h5'
+            if not os.path.exists(model_path):
+                st.error(f"Model not found at {model_path}")
+                st.info("Please make sure the model file exists in the models directory")
+                return None
+            
+            model = tf.keras.models.load_model(model_path)
+            st.success("CNN model loaded successfully!")
+            return model
+            
         elif model_type == 'logistic':
+            model_path = 'models/logistic_regression_model.pkl'
+            pca_path = 'models/pca_transformer.pkl'
+            
+            if not os.path.exists(model_path) or not os.path.exists(pca_path):
+                st.error(f"Model or PCA not found at {model_path} or {pca_path}")
+                st.info("Please make sure both files exist in the models directory")
+                return None, None
+                
             import joblib
-            model = joblib.load('models/logistic_regression_model.pkl')
-            # Charger aussi le PCA si nécessaire
-            pca = joblib.load('models/pca_transformer.pkl')
+            model = joblib.load(model_path)
+            pca = joblib.load(pca_path)
+            st.success("Logistic regression model and PCA loaded successfully!")
             return model, pca
-        return model
+            
     except Exception as e:
         st.error(f"Error loading model: {str(e)}")
+        st.info("Please check if the model files are correctly formatted and accessible")
         return None
 
 def preprocess_image(image):
@@ -631,29 +685,36 @@ def predict_image(image):
             index=0
         )
         
+        st.info(f"Using {model_type} for prediction...")
+        
         if model_type == 'CNN Model':
             # Load CNN model
             model = load_model('cnn')
             if model is None:
+                st.error("Failed to load CNN model")
                 return False, "CNN Model not loaded", None
                 
             # Make prediction with CNN
-            prediction = model.predict(processed_image)
-            pneumonia_probability = float(prediction[0][0])
+            with st.spinner('Making prediction with CNN...'):
+                prediction = model.predict(processed_image)
+                pneumonia_probability = float(prediction[0][0])
             
         else:
             # Load logistic regression model and PCA
             model, pca = load_model('logistic')
             if model is None or pca is None:
+                st.error("Failed to load Logistic Regression model or PCA")
                 return False, "Logistic Regression Model not loaded", None
                 
             # Flatten and transform the image
-            flattened_image = processed_image.reshape(1, -1)
-            transformed_image = pca.transform(flattened_image)
+            with st.spinner('Processing image with PCA...'):
+                flattened_image = processed_image.reshape(1, -1)
+                transformed_image = pca.transform(flattened_image)
             
             # Make prediction with logistic regression
-            prediction = model.predict_proba(transformed_image)
-            pneumonia_probability = float(prediction[0][1])  # Assuming 1 is the positive class
+            with st.spinner('Making prediction with Logistic Regression...'):
+                prediction = model.predict_proba(transformed_image)
+                pneumonia_probability = float(prediction[0][1])  # Assuming 1 is the positive class
         
         response_time = (time.time() - start_time) * 1000  # in milliseconds
         
@@ -661,11 +722,16 @@ def predict_image(image):
             'probability': pneumonia_probability,
             'has_pneumonia': pneumonia_probability > 0.5,
             'confidence': f"{pneumonia_probability * 100:.2f}%" if pneumonia_probability > 0.5 else f"{(1 - pneumonia_probability) * 100:.2f}%",
-            'model_used': model_type
+            'model_used': model_type,
+            'response_time_ms': response_time
         }
         
+        st.success(f"Prediction completed in {response_time:.0f}ms")
         return True, result, response_time
+        
     except Exception as e:
+        st.error(f"Error during prediction: {str(e)}")
+        st.info("Please try again or contact support if the problem persists")
         return False, f"Error making prediction: {str(e)}", None
 
 def display_results(prediction, response_time):
