@@ -3,43 +3,6 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-import sys
-from pathlib import Path
-import requests
-from PIL import Image
-import io
-import numpy as np
-import time
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-import tensorflow as tf
-
-# Add the src directory to the path
-sys.path.append(str(Path(__file__).parent))
-
-# Import from local modules
-from config.config import (
-    PAGE_TITLE,
-    PAGE_ICON,
-    THEME_CONFIG,
-    get_api_url
-)
-from utils.utils import apply_custom_theme
-from database.database import init_database
-
-# Import page classes
-from pages.LoginPage import LoginPage
-from pages.RegisterPage import RegisterPage
-from pages.ProfilePage import ProfilePage
-from pages.PredictionPage import render as render_prediction
-from pages.AboutPage import AboutPage
-from pages.LogoutPage import LogoutPage
-from pages.SidebarComponent import SidebarComponent
-#from pages.ModelComparisonPage import ModelComparisonPage
-#from pages.DatasetExplorerPage import DatasetExplorerPage
-
 import streamlit as st
 
 # Set page configuration MUST BE THE FIRST STREAMLIT COMMAND
@@ -92,165 +55,48 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+import sys
+from pathlib import Path
+import requests
+from PIL import Image
+import io
+import numpy as np
+import time
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+import tensorflow as tf
+
+# Add the src directory to the path
+sys.path.append(str(Path(__file__).parent))
+
+# Import from local modules
+from config.config import (
+    PAGE_TITLE,
+    PAGE_ICON,
+    THEME_CONFIG,
+    get_api_url
+)
+from utils.utils import apply_custom_theme
+from database.database import init_database
+
+# Import page classes
+from pages.LoginPage import LoginPage
+from pages.RegisterPage import RegisterPage
+from pages.ProfilePage import ProfilePage
+from pages.PredictionPage import render as render_prediction
+from pages.AboutPage import AboutPage
+from pages.LogoutPage import LogoutPage
+from pages.SidebarComponent import SidebarComponent
+#from pages.ModelComparisonPage import ModelComparisonPage
+#from pages.DatasetExplorerPage import DatasetExplorerPage
+
 # Initialize database
 init_database()
 
 # Apply custom theme
 apply_custom_theme()
-
-# Styles for the home page
-st.markdown("""
-<style>
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
-}
-
-.feature-card {
-    transition: all 0.3s ease;
-    border-radius: 10px;
-    padding: 20px;
-    margin: 10px 0;
-    background: white;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.feature-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-}
-
-.welcome-section {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    padding: 30px;
-    border-radius: 10px;
-    margin: 20px 0;
-    animation: fadeIn 1s ease-in;
-}
-
-.icon-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 80px;
-    height: 80px;
-    background: #1E88E5;
-    border-radius: 50%;
-    margin: 0 auto 15px;
-}
-
-.icon-container img {
-    width: 40px;
-    height: 40px;
-    filter: brightness(0) invert(1);
-}
-
-.stat-card {
-    background: linear-gradient(135deg, #1E88E5 0%, #0d47a1 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    margin: 10px;
-    animation: fadeIn 1s ease-in;
-}
-
-.stat-number {
-    font-size: 2.5em;
-    font-weight: bold;
-    margin: 10px 0;
-}
-
-.demo-container {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 10px;
-    margin: 20px 0;
-    animation: fadeIn 1s ease-in;
-}
-
-.demo-image {
-    width: 100%;
-    max-width: 400px;
-    border-radius: 10px;
-    margin: 10px auto;
-    display: block;
-}
-
-.cta-button {
-    background: #1E88E5;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 10px;
-}
-
-.cta-button:hover {
-    background: #0d47a1;
-    transform: translateY(-2px);
-}
-
-.testimonial-card {
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    margin: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    animation: fadeIn 1s ease-in;
-}
-
-.team-member {
-    text-align: center;
-    padding: 20px;
-    animation: fadeIn 1s ease-in;
-}
-
-.team-member img {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    margin-bottom: 10px;
-    border: 3px solid #1E88E5;
-}
-
-.main {
-    background-color: #f0f2f6;
-}
-
-.stButton>button {
-    background-color: #4CAF50;
-    color: white;
-    border-radius: 5px;
-    padding: 10px 20px;
-    font-size: 16px;
-}
-
-.error-message {
-    color: #ff0000;
-    font-weight: bold;
-}
-
-.success-message {
-    color: #008000;
-    font-weight: bold;
-}
-
-.info-message {
-    color: #0000ff;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # Initialize and render the sidebar component
 sidebar = SidebarComponent()
