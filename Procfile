@@ -1,1 +1,1 @@
-web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 
+web: chmod +x start.sh && ./start.sh 
