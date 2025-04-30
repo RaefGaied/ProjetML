@@ -5,6 +5,7 @@ This repository contains a machine learning project for detecting pneumonia from
 
 The **Chest X-Ray Pneumonia Detection** app is live on Streamlit Cloud! 🚀  
 Click the link below to upload X-ray images and predict if they indicate **Pneumonia** or **Normal**:
+https://projetml-wmdmfhjokvwxxjrwpxt3xz.streamlit.app/
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://pneumonia-vanshajr.streamlit.app)
 
