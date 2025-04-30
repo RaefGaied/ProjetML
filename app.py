@@ -15,6 +15,14 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+import tensorflow as tf
+
+# Télécharger le modèle si nécessaire
+try:
+    from download_model import download_model
+    download_model()
+except Exception as e:
+    st.error(f"Error downloading model: {str(e)}")
 
 # Set page configuration at the very beginning
 st.set_page_config(
@@ -585,26 +593,57 @@ def validate_image(image):
     except Exception as e:
         return False, f"Error processing image: {str(e)}"
 
+# Charger le modèle au démarrage de l'application
+@st.cache_resource
+def load_model():
+    try:
+        model = tf.keras.models.load_model('models/pneumonia_model.h5')
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        return None
+
+def preprocess_image(image):
+    """Preprocess the image for model prediction"""
+    # Resize image
+    image = image.resize((224, 224))
+    # Convert to numpy array
+    image_array = np.array(image)
+    # Normalize pixel values
+    image_array = image_array / 255.0
+    # Add batch dimension
+    image_array = np.expand_dims(image_array, axis=0)
+    return image_array
+
 def predict_image(image):
-    """Make prediction using API"""
+    """Make prediction using the loaded model"""
     try:
         start_time = time.time()
-        img_byte_arr = io.BytesIO()
-        image.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
-
-        API_URL = "http://127.0.0.1:5000/predict"  # Updated API URL
         
-        files = {'file': ('image.png', img_byte_arr, 'image/png')}
-        with st.spinner('Analyzing image...'):
-            response = requests.post(API_URL, files=files)
+        # Preprocess the image
+        processed_image = preprocess_image(image)
+        
+        # Load model
+        model = load_model()
+        
+        if model is None:
+            return False, "Model not loaded", None
+            
+        # Make prediction
+        prediction = model.predict(processed_image)
+        
+        # Get the probability of pneumonia
+        pneumonia_probability = float(prediction[0][0])
         
         response_time = (time.time() - start_time) * 1000  # in milliseconds
         
-        if response.status_code == 200:
-            return True, response.json(), response_time
-        else:
-            return False, f"API Error: {response.status_code}", response_time
+        result = {
+            'probability': pneumonia_probability,
+            'has_pneumonia': pneumonia_probability > 0.5,
+            'confidence': f"{pneumonia_probability * 100:.2f}%" if pneumonia_probability > 0.5 else f"{(1 - pneumonia_probability) * 100:.2f}%"
+        }
+        
+        return True, result, response_time
     except Exception as e:
         return False, f"Error making prediction: {str(e)}", None
 
