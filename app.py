@@ -687,7 +687,7 @@ def predict_image(image):
         )
 
         # Préparer l'URL de l'API avec le type de modèle
-        API_URL = "http://127.0.0.1:5000/predict"
+        API_URL = os.getenv('API_URL', 'http://127.0.0.1:5000/predict')
         model_param = "cnn" if model_type == "CNN Model" else "logistic"
         
         files = {'file': ('image.png', img_byte_arr, 'image/png')}
