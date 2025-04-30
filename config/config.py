@@ -12,6 +12,13 @@ PCA_TRANSFORMER_PATH = "models/pca_transformer.pkl"
 # Database Configuration
 DATABASE_PATH = "database/users.db"
 
+# API Configuration
+API_BASE_URL = "http://127.0.0.1:5000"
+
+def get_api_url(endpoint=""):
+    """Get the full API URL for a given endpoint"""
+    return f"{API_BASE_URL}/{endpoint.lstrip('/')}"
+
 # Theme Configuration
 THEME_CONFIG = {
     "primaryColor": "#1E88E5",
