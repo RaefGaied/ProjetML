@@ -7,6 +7,7 @@ import os
 import joblib
 from dotenv import load_dotenv
 import warnings
+import streamlit as st
 
 # Suppress HDF5 version warning
 warnings.filterwarnings('ignore', category=UserWarning, module='h5py')
@@ -22,21 +23,26 @@ cnn_model = None
 logistic_model = None
 pca_transformer = None
 
-def load_models():
-    """Load all models"""
-    global cnn_model, logistic_model, pca_transformer
-    
+def load_model(model_type='cnn'):
+    """Load the selected model and return it"""
     try:
-        # Get the absolute path to the models directory
-        models_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
+        st.write(f"Loading {model_type} model...")
         
-        # Load CNN model
-        cnn_path = os.path.join(models_dir, 'cnn_model.h5')
-        if os.path.exists(cnn_path):
-            cnn_model = tf.keras.models.load_model(
-                cnn_path,
+        if model_type == 'cnn':
+            model_path = 'models/cnn_model.h5'
+            if not os.path.exists(model_path):
+                st.error(f"Model not found at {model_path}")
+                st.info("Please make sure the model file exists in the models directory")
+                return None
+            
+            # Suppress HDF5 version warning
+            warnings.filterwarnings('ignore', category=UserWarning, module='h5py')
+            
+            # Load model with custom_objects to handle version incompatibilities
+            model = tf.keras.models.load_model(
+                model_path,
                 custom_objects={
-                    'InputLayer': tf.keras.layers.InputLayer,
+                    'InputLayer': lambda **kwargs: tf.keras.layers.InputLayer(**{k: v for k, v in kwargs.items() if k != 'batch_shape'}),
                     'Conv2D': tf.keras.layers.Conv2D,
                     'MaxPooling2D': tf.keras.layers.MaxPooling2D,
                     'Flatten': tf.keras.layers.Flatten,
@@ -44,26 +50,25 @@ def load_models():
                     'Dropout': tf.keras.layers.Dropout
                 }
             )
-            print("CNN model loaded successfully!")
+            st.success("CNN model loaded successfully!")
+            return model
         else:
-            print(f"CNN model not found at {cnn_path}")
-        
-        # Load Logistic Regression model and PCA
-        logistic_path = os.path.join(models_dir, 'logistic_regression_model.pkl')
-        pca_path = os.path.join(models_dir, 'pca_transformer.pkl')
-        
-        if os.path.exists(logistic_path) and os.path.exists(pca_path):
-            logistic_model = joblib.load(logistic_path)
-            pca_transformer = joblib.load(pca_path)
-            print("Logistic Regression model and PCA loaded successfully!")
-        else:
-            print(f"Logistic model or PCA not found at {logistic_path} or {pca_path}")
+            # Load Logistic Regression model and PCA
+            logistic_path = os.path.join('models', 'logistic_regression_model.pkl')
+            pca_path = os.path.join('models', 'pca_transformer.pkl')
+            
+            if os.path.exists(logistic_path) and os.path.exists(pca_path):
+                logistic_model = joblib.load(logistic_path)
+                pca_transformer = joblib.load(pca_path)
+                st.success("Logistic Regression model and PCA loaded successfully!")
+            else:
+                st.error(f"Logistic model or PCA not found at {logistic_path} or {pca_path}")
             
     except Exception as e:
-        print(f"Error loading models: {str(e)}")
+        st.error(f"Error loading models: {str(e)}")
 
 # Load models at startup
-load_models()
+load_model()
 
 def preprocess_image(image, model_type='cnn'):
     """Preprocess the image for model prediction"""
