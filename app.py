@@ -6,11 +6,35 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import streamlit as st
 import sys
 from pathlib import Path
+import numpy as np
+from tensorflow.keras.models import load_model
+from tensorflow.keras.layers import InputLayer, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+import pickle
+from PIL import Image
+import warnings
+
+# Suppress HDF5 version warning
+warnings.filterwarnings('ignore', category=UserWarning, module='h5py')
+
+# Configuration
+PAGE_TITLE = "Pneumonia Detection System"
+PAGE_ICON = "🏥"
+CNN_MODEL_PATH = "models/cnn_model.h5"
+LOGISTIC_REGRESSION_PATH = "models/logistic_regression_model.pkl"
+DATABASE_PATH = "database/users.db"
+
+THEME_CONFIG = {
+    "primaryColor": "#2196F3",  # Bleu plus vif
+    "backgroundColor": "#1E1E1E",  # Fond sombre
+    "secondaryBackgroundColor": "#2D2D2D",  # Fond secondaire sombre
+    "textColor": "#FFFFFF",  # Texte blanc
+    "font": "sans serif"
+}
 
 # Set page configuration at the very beginning
 st.set_page_config(
-    page_title="Pneumonia Detection System",
-    page_icon="🫁",
+    page_title=PAGE_TITLE,
+    page_icon=PAGE_ICON,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -501,3 +525,130 @@ except Exception as e:
 
 # Close the main content div
 st.markdown("</div>", unsafe_allow_html=True)
+
+# Custom InputLayer class to handle batch_shape
+class CustomInputLayer(InputLayer):
+    def __init__(self, **kwargs):
+        if 'batch_shape' in kwargs:
+            # Convert batch_shape to shape by removing the batch dimension
+            shape = kwargs.pop('batch_shape')[1:]
+            kwargs['shape'] = shape
+        super().__init__(**kwargs)
+
+# Load models
+try:
+    with open(LOGISTIC_REGRESSION_PATH, 'rb') as f:
+        lr_model = pickle.load(f)
+    st.success("Logistic Regression model loaded successfully!")
+except Exception as e:
+    st.error(f"Error loading Logistic Regression model: {str(e)}")
+    lr_model = None
+
+try:
+    cnn_model = load_model(CNN_MODEL_PATH, 
+        custom_objects={
+            'InputLayer': CustomInputLayer,
+            'Conv2D': Conv2D,
+            'MaxPooling2D': MaxPooling2D,
+            'Flatten': Flatten,
+            'Dense': Dense,
+            'Dropout': Dropout
+        }
+    )
+    st.success("CNN model loaded successfully!")
+except Exception as e:
+    st.error(f"Error loading CNN model: {str(e)}")
+    cnn_model = None
+
+# Streamlit UI
+st.title("Chest X-Ray Pneumonia Detection")
+
+st.markdown("""
+    **Upload one or more X-Ray images**, and this app will predict whether each image shows **Pneumonia** or **Normal**. 
+    This model uses **CNN** and **Logistic Regression** to make the predictions.
+""")
+
+# Function to preprocess the uploaded image
+def preprocess_image(image):
+    try:
+        # Convert image to grayscale if it's RGB
+        if image.mode == "RGB":
+            image = image.convert("L")
+        
+        # Resize the image to 150x150 (input size for the models)
+        image = image.resize((150, 150))
+        
+        # Convert image to a numpy array and normalize pixel values
+        img_array = np.array(image) / 255.0
+
+        # Reshape for CNN (add batch and channel dimensions)
+        img_cnn = img_array.reshape(1, 150, 150, 1)
+
+        # Flatten the image for Logistic Regression (22500 features)
+        img_flat = img_array.flatten().reshape(1, -1)
+
+        return img_cnn, img_flat
+    except Exception as e:
+        st.error(f"Error processing the image: {e}")
+        return None, None
+
+# Multi-file upload section
+uploaded_files = st.file_uploader("Upload one or more X-ray Images", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+
+# If images are loaded, preview them
+if uploaded_files:
+    images = []  # List to hold loaded images
+    for file in uploaded_files:
+        try:
+            img = Image.open(file)
+            images.append(img)
+        except Exception as e:
+            st.error(f"Error loading file {file.name}: {e}")
+
+    # Display previews of all images
+    st.subheader("Preview Images")
+    cols = st.columns(min(len(images), 4))  # Display up to 4 images per row
+    for i, img in enumerate(images):
+        with cols[i % len(cols)]:
+            st.image(img, caption=f"Image {i + 1}", use_column_width=True)
+
+    # Add a button to confirm before running predictions
+    if st.button("Classify Images"):
+        if cnn_model is None or lr_model is None:
+            st.error("One or more models failed to load. Please check the error messages above.")
+        else:
+            results = []  # To store results
+            for i, img in enumerate(images):
+                st.write(f"Classifying Image {i + 1}...")
+                img_cnn, img_flat = preprocess_image(img)
+
+                if img_cnn is not None and img_flat is not None:
+                    # CNN Prediction
+                    cnn_preds = cnn_model.predict(img_cnn)
+                    cnn_preds = (cnn_preds > 0.5).astype(int)
+
+                    # Logistic Regression Prediction
+                    lr_preds = lr_model.predict(img_flat)
+
+                    # Append results
+                    results.append({
+                        "Image": f"Image {i + 1}",
+                        "CNN": "Pneumonia" if cnn_preds == 0 else "Normal",
+                        "Logistic Regression": "Pneumonia" if lr_preds == 0 else "Normal"
+                    })
+                else:
+                    results.append({
+                        "Image": f"Image {i + 1}",
+                        "CNN": "Error in processing",
+                        "Logistic Regression": "Error in processing"
+                    })
+
+            # Display results
+            st.subheader("Prediction Results")
+            for res in results:
+                st.write(f"**{res['Image']}**")
+                st.write(f"- CNN Prediction: {res['CNN']}")
+                st.write(f"- Logistic Regression Prediction: {res['Logistic Regression']}")
+
+else:
+    st.info("Please upload one or more images to classify.")
