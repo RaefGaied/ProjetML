@@ -6,6 +6,10 @@ import numpy as np
 import os
 import joblib
 from dotenv import load_dotenv
+import warnings
+
+# Suppress HDF5 version warning
+warnings.filterwarnings('ignore', category=UserWarning, module='h5py')
 
 # Load environment variables
 load_dotenv()
@@ -23,17 +27,30 @@ def load_models():
     global cnn_model, logistic_model, pca_transformer
     
     try:
+        # Get the absolute path to the models directory
+        models_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models')
+        
         # Load CNN model
-        cnn_path = os.path.join('models', 'cnn_model.h5')
+        cnn_path = os.path.join(models_dir, 'cnn_model.h5')
         if os.path.exists(cnn_path):
-            cnn_model = tf.keras.models.load_model(cnn_path)
+            cnn_model = tf.keras.models.load_model(
+                cnn_path,
+                custom_objects={
+                    'InputLayer': tf.keras.layers.InputLayer,
+                    'Conv2D': tf.keras.layers.Conv2D,
+                    'MaxPooling2D': tf.keras.layers.MaxPooling2D,
+                    'Flatten': tf.keras.layers.Flatten,
+                    'Dense': tf.keras.layers.Dense,
+                    'Dropout': tf.keras.layers.Dropout
+                }
+            )
             print("CNN model loaded successfully!")
         else:
             print(f"CNN model not found at {cnn_path}")
         
         # Load Logistic Regression model and PCA
-        logistic_path = os.path.join('models', 'logistic_regression_model.pkl')
-        pca_path = os.path.join('models', 'pca_transformer.pkl')
+        logistic_path = os.path.join(models_dir, 'logistic_regression_model.pkl')
+        pca_path = os.path.join(models_dir, 'pca_transformer.pkl')
         
         if os.path.exists(logistic_path) and os.path.exists(pca_path):
             logistic_model = joblib.load(logistic_path)
@@ -50,8 +67,8 @@ load_models()
 
 def preprocess_image(image, model_type='cnn'):
     """Preprocess the image for model prediction"""
-    # Resize image
-    image = image.resize((224, 224))
+    # Resize image to match model input size
+    image = image.resize((150, 150))
     # Convert to numpy array
     image_array = np.array(image)
     # Normalize pixel values
