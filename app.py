@@ -686,8 +686,8 @@ def predict_image(image):
             index=0
         )
 
-        # Get API URL from configuration
-        API_URL = get_api_url()
+        # Préparer l'URL de l'API avec le type de modèle
+        API_URL = "http://127.0.0.1:5000/predict"
         model_param = "cnn" if model_type == "CNN Model" else "logistic"
         
         files = {'file': ('image.png', img_byte_arr, 'image/png')}
@@ -704,19 +704,12 @@ def predict_image(image):
             return True, result, response_time
         else:
             error_msg = response.json().get('error', f"API Error: {response.status_code}")
-            st.error(f"API Error: {error_msg}")
             return False, error_msg, response_time
             
     except requests.exceptions.ConnectionError:
-        error_msg = "Could not connect to the API. Please check if the API is running and accessible."
-        st.error(error_msg)
-        st.info("If you're using the deployed version, please wait a few minutes and try again.")
-        return False, error_msg, None
+        return False, "Could not connect to the API. Make sure it's running and accessible.", None
     except Exception as e:
-        error_msg = f"Error making prediction: {str(e)}"
-        st.error(error_msg)
-        st.info("Please try again or contact support if the problem persists.")
-        return False, error_msg, None
+        return False, f"Error making prediction: {str(e)}", None
 
 def display_results(prediction, response_time):
     """Display prediction results with enhanced visualization"""
