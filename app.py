@@ -4,27 +4,8 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import streamlit as st
-import sys
-from pathlib import Path
-import requests
-from PIL import Image
-import io
-import numpy as np
-import time
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-import tensorflow as tf
 
-# Télécharger le modèle si nécessaire
-try:
-    from download_model import download_model
-    download_model()
-except Exception as e:
-    st.error(f"Error downloading model: {str(e)}")
-
-# Set page configuration at the very beginning
+# Set page configuration MUST BE THE FIRST STREAMLIT COMMAND
 st.set_page_config(
     page_title="Pneumonia Detection System",
     page_icon="🫁",
@@ -66,6 +47,19 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+import sys
+from pathlib import Path
+import requests
+from PIL import Image
+import io
+import numpy as np
+import time
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+import tensorflow as tf
 
 # Add the src directory to the path
 sys.path.append(str(Path(__file__).parent))
@@ -595,9 +589,16 @@ def validate_image(image):
 
 # Charger le modèle au démarrage de l'application
 @st.cache_resource
-def load_model():
+def load_model(model_type='cnn'):
     try:
-        model = tf.keras.models.load_model('models/pneumonia_model.h5')
+        if model_type == 'cnn':
+            model = tf.keras.models.load_model('models/cnn_model.h5')
+        elif model_type == 'logistic':
+            import joblib
+            model = joblib.load('models/logistic_regression_model.pkl')
+            # Charger aussi le PCA si nécessaire
+            pca = joblib.load('models/pca_transformer.pkl')
+            return model, pca
         return model
     except Exception as e:
         st.error(f"Error loading model: {str(e)}")
@@ -623,24 +624,44 @@ def predict_image(image):
         # Preprocess the image
         processed_image = preprocess_image(image)
         
-        # Load model
-        model = load_model()
+        # Ajouter un sélecteur de modèle
+        model_type = st.selectbox(
+            "Select Model",
+            ['CNN Model', 'Logistic Regression'],
+            index=0
+        )
         
-        if model is None:
-            return False, "Model not loaded", None
+        if model_type == 'CNN Model':
+            # Load CNN model
+            model = load_model('cnn')
+            if model is None:
+                return False, "CNN Model not loaded", None
+                
+            # Make prediction with CNN
+            prediction = model.predict(processed_image)
+            pneumonia_probability = float(prediction[0][0])
             
-        # Make prediction
-        prediction = model.predict(processed_image)
-        
-        # Get the probability of pneumonia
-        pneumonia_probability = float(prediction[0][0])
+        else:
+            # Load logistic regression model and PCA
+            model, pca = load_model('logistic')
+            if model is None or pca is None:
+                return False, "Logistic Regression Model not loaded", None
+                
+            # Flatten and transform the image
+            flattened_image = processed_image.reshape(1, -1)
+            transformed_image = pca.transform(flattened_image)
+            
+            # Make prediction with logistic regression
+            prediction = model.predict_proba(transformed_image)
+            pneumonia_probability = float(prediction[0][1])  # Assuming 1 is the positive class
         
         response_time = (time.time() - start_time) * 1000  # in milliseconds
         
         result = {
             'probability': pneumonia_probability,
             'has_pneumonia': pneumonia_probability > 0.5,
-            'confidence': f"{pneumonia_probability * 100:.2f}%" if pneumonia_probability > 0.5 else f"{(1 - pneumonia_probability) * 100:.2f}%"
+            'confidence': f"{pneumonia_probability * 100:.2f}%" if pneumonia_probability > 0.5 else f"{(1 - pneumonia_probability) * 100:.2f}%",
+            'model_used': model_type
         }
         
         return True, result, response_time

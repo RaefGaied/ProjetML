@@ -11,6 +11,6 @@ pillow>=9.5.0
 requests>=2.31.0
 plotly>=5.14.1
 python-dotenv>=1.0.0
-kaggle==1.5.16
 pathlib==1.0.1
 h5py>=3.9.0
+joblib>=1.3.0
