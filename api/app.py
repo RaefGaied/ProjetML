@@ -24,7 +24,7 @@ def load_models():
     
     try:
         # Load CNN model
-        cnn_path = os.path.join('..', 'models', 'cnn_model.h5')
+        cnn_path = os.path.join('models', 'cnn_model.h5')
         if os.path.exists(cnn_path):
             cnn_model = tf.keras.models.load_model(cnn_path)
             print("CNN model loaded successfully!")
@@ -32,8 +32,8 @@ def load_models():
             print(f"CNN model not found at {cnn_path}")
         
         # Load Logistic Regression model and PCA
-        logistic_path = os.path.join('..', 'models', 'logistic_regression_model.pkl')
-        pca_path = os.path.join('..', 'models', 'pca_transformer.pkl')
+        logistic_path = os.path.join('models', 'logistic_regression_model.pkl')
+        pca_path = os.path.join('models', 'pca_transformer.pkl')
         
         if os.path.exists(logistic_path) and os.path.exists(pca_path):
             logistic_model = joblib.load(logistic_path)
@@ -127,4 +127,4 @@ def health_check():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True) 
+    app.run(host='0.0.0.0', port=port, debug=False)  # Set debug to False for production 
