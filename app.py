@@ -3,6 +3,43 @@ import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+import sys
+from pathlib import Path
+import requests
+from PIL import Image
+import io
+import numpy as np
+import time
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+import tensorflow as tf
+
+# Add the src directory to the path
+sys.path.append(str(Path(__file__).parent))
+
+# Import from local modules
+from config.config import (
+    PAGE_TITLE,
+    PAGE_ICON,
+    THEME_CONFIG,
+    get_api_url
+)
+from utils.utils import apply_custom_theme
+from database.database import init_database
+
+# Import page classes
+from pages.LoginPage import LoginPage
+from pages.RegisterPage import RegisterPage
+from pages.ProfilePage import ProfilePage
+from pages.PredictionPage import render as render_prediction
+from pages.AboutPage import AboutPage
+from pages.LogoutPage import LogoutPage
+from pages.SidebarComponent import SidebarComponent
+#from pages.ModelComparisonPage import ModelComparisonPage
+#from pages.DatasetExplorerPage import DatasetExplorerPage
+
 import streamlit as st
 
 # Set page configuration MUST BE THE FIRST STREAMLIT COMMAND
@@ -54,43 +91,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-import sys
-from pathlib import Path
-import requests
-from PIL import Image
-import io
-import numpy as np
-import time
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-import tensorflow as tf
-
-# Add the src directory to the path
-sys.path.append(str(Path(__file__).parent))
-
-# Import from local modules
-from config.config import (
-    PAGE_TITLE,
-    PAGE_ICON,
-    THEME_CONFIG,
-    get_api_url
-)
-from utils.utils import apply_custom_theme
-from database.database import init_database
-
-# Import page classes
-from pages.LoginPage import LoginPage
-from pages.RegisterPage import RegisterPage
-from pages.ProfilePage import ProfilePage
-from pages.PredictionPage import render as render_prediction
-from pages.AboutPage import AboutPage
-from pages.LogoutPage import LogoutPage
-from pages.SidebarComponent import SidebarComponent
-#from pages.ModelComparisonPage import ModelComparisonPage
-#from pages.DatasetExplorerPage import DatasetExplorerPage
 
 # Initialize database
 init_database()
