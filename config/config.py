@@ -13,11 +13,11 @@ PCA_TRANSFORMER_PATH = "models/pca_transformer.pkl"
 DATABASE_PATH = "database/users.db"
 
 # API Configuration
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:5000")
+#API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:5000")
 
-def get_api_url(endpoint=""):
-    """Get the full API URL for a given endpoint"""
-    return f"{API_BASE_URL}/{endpoint.lstrip('/')}"
+#def get_api_url(endpoint=""):
+ #   """Get the full API URL for a given endpoint"""
+  #  return f"{API_BASE_URL}/{endpoint.lstrip('/')}"
 
 # Theme Configuration
 THEME_CONFIG = {

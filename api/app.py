@@ -1,38 +1,22 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import tensorflow as tf
-from PIL import Image
-import numpy as np
-import os
-import joblib
-from dotenv import load_dotenv
-import warnings
 import streamlit as st
+import numpy as np
+import cv2
+from tensorflow.keras.models import load_model
+import pickle
+from PIL import Image
+import os
+import warnings
+import joblib
+import tensorflow as tf
 
-# Suppress HDF5 version warning
-warnings.filterwarnings('ignore', category=UserWarning, module='h5py')
-
-# Load environment variables
-load_dotenv()
-
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
-
-# Initialize models as None
-cnn_model = None
-logistic_model = None
-pca_transformer = None
-
+# Load models
 def load_model(model_type='cnn'):
     """Load the selected model and return it"""
     try:
-        st.write(f"Loading {model_type} model...")
-        
         if model_type == 'cnn':
             model_path = 'models/cnn_model.h5'
             if not os.path.exists(model_path):
-                st.error(f"Model not found at {model_path}")
-                st.info("Please make sure the model file exists in the models directory")
+                print(f"Model not found at {model_path}")
                 return None
             
             # Suppress HDF5 version warning
@@ -50,7 +34,7 @@ def load_model(model_type='cnn'):
                     'Dropout': tf.keras.layers.Dropout
                 }
             )
-            st.success("CNN model loaded successfully!")
+            print("CNN model loaded successfully!")
             return model
         else:
             # Load Logistic Regression model and PCA
@@ -60,101 +44,106 @@ def load_model(model_type='cnn'):
             if os.path.exists(logistic_path) and os.path.exists(pca_path):
                 logistic_model = joblib.load(logistic_path)
                 pca_transformer = joblib.load(pca_path)
-                st.success("Logistic Regression model and PCA loaded successfully!")
+                print("Logistic Regression model and PCA loaded successfully!")
+                return logistic_model, pca_transformer
             else:
-                st.error(f"Logistic model or PCA not found at {logistic_path} or {pca_path}")
+                print(f"Logistic model or PCA not found at {logistic_path} or {pca_path}")
+                return None, None
             
     except Exception as e:
-        st.error(f"Error loading models: {str(e)}")
+        print(f"Error loading models: {str(e)}")
+        return None
 
-# Load models at startup
-load_model()
+# Initialize models
+cnn_model = load_model('cnn')
+logistic_model, pca_transformer = load_model('logistic')
 
-def preprocess_image(image, model_type='cnn'):
-    """Preprocess the image for model prediction"""
-    # Resize image to match model input size
-    image = image.resize((150, 150))
-    # Convert to numpy array
-    image_array = np.array(image)
-    # Normalize pixel values
-    image_array = image_array / 255.0
-    
-    if model_type == 'cnn':
-        # Add batch dimension for CNN
-        image_array = np.expand_dims(image_array, axis=0)
-    else:
-        # Flatten image for logistic regression
-        image_array = image_array.reshape(1, -1)
-        # Apply PCA transformation
-        if pca_transformer is not None:
-            image_array = pca_transformer.transform(image_array)
-            
-    return image_array
+# Streamlit UI
+st.title("Chest X-Ray Pneumonia Detection")
 
-@app.route('/predict', methods=['POST'])
-def predict():
+st.markdown("""
+    **Upload one or more X-Ray images**, and this app will predict whether each image shows **Pneumonia** or **Normal**. 
+    This model uses **CNN** and **Logistic Regression** to make the predictions.
+""")
+
+# Function to preprocess the uploaded image
+def preprocess_image(image):
     try:
-        # Check if image is in request
-        if 'file' not in request.files:
-            return jsonify({'error': 'No image provided'}), 400
+        # Convert image to grayscale if it's RGB
+        if image.mode == "RGB":
+            image = image.convert("L")
         
-        file = request.files['file']
+        # Resize the image to 150x150 (input size for the models)
+        image = image.resize((150, 150))
         
-        # Check if file is empty
-        if file.filename == '':
-            return jsonify({'error': 'No image selected'}), 400
-            
-        # Check if file is an image
-        if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            return jsonify({'error': 'Invalid file type. Please upload an image (PNG, JPG, JPEG)'}), 400
-            
-        # Get model type from request
-        model_type = request.args.get('model_type', 'cnn')
-        
-        # Open and preprocess the image
-        try:
-            image = Image.open(file)
-            processed_image = preprocess_image(image, model_type)
-        except Exception as e:
-            return jsonify({'error': f'Error processing image: {str(e)}'}), 400
-            
-        # Make prediction
-        try:
-            if model_type == 'cnn':
-                if cnn_model is None:
-                    return jsonify({'error': 'CNN model not loaded'}), 500
-                prediction = cnn_model.predict(processed_image)
-                probability = float(prediction[0][0])
-            else:
-                if logistic_model is None or pca_transformer is None:
-                    return jsonify({'error': 'Logistic Regression model or PCA not loaded'}), 500
-                prediction = logistic_model.predict_proba(processed_image)
-                probability = float(prediction[0][1])
-                
-            return jsonify({
-                'probability': probability,
-                'has_pneumonia': probability > 0.5,
-                'confidence': f"{probability * 100:.2f}%"
-            })
-            
-        except Exception as e:
-            return jsonify({'error': f'Error making prediction: {str(e)}'}), 500
-            
+        # Convert image to a numpy array and normalize pixel values
+        img_array = np.array(image) / 255.0
+
+        # Reshape for CNN (add batch and channel dimensions)
+        img_cnn = img_array.reshape(1, 150, 150, 1)
+
+        # Flatten the image for Logistic Regression (22500 features)
+        img_flat = img_array.flatten().reshape(1, -1)
+
+        return img_cnn, img_flat
     except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        st.error(f"Error processing the image: {e}")
+        return None, None
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    status = {
-        'status': 'healthy',
-        'models': {
-            'cnn': cnn_model is not None,
-            'logistic': logistic_model is not None and pca_transformer is not None
-        }
-    }
-    return jsonify(status)
+# Multi-file upload section
+uploaded_files = st.file_uploader("Upload one or more X-ray Images", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)  # Set debug to False for production 
+# If images are loaded, preview them
+if uploaded_files:
+    images = []  # List to hold loaded images
+    for file in uploaded_files:
+        try:
+            img = Image.open(file)
+            images.append(img)
+        except Exception as e:
+            st.error(f"Error loading file {file.name}: {e}")
+
+    # Display previews of all images
+    st.subheader("Preview Images")
+    cols = st.columns(min(len(images), 4))  # Display up to 4 images per row
+    for i, img in enumerate(images):
+        with cols[i % len(cols)]:
+            st.image(img, caption=f"Image {i + 1}", use_column_width=True)
+
+    # Add a button to confirm before running predictions
+    if st.button("Classify Images"):
+        results = []  # To store results
+        for i, img in enumerate(images):
+            st.write(f"Classifying Image {i + 1}...")
+            img_cnn, img_flat = preprocess_image(img)
+
+            if img_cnn is not None and img_flat is not None:
+                # CNN Prediction
+                cnn_preds = cnn_model.predict(img_cnn)
+                cnn_preds = (cnn_preds > 0.5).astype(int)
+
+                # Logistic Regression Prediction
+                lr_preds = logistic_model.predict(img_flat)
+
+                # Append results
+                results.append({
+                    "Image": f"Image {i + 1}",
+                    "CNN": "Pneumonia" if cnn_preds == 0 else "Normal",
+                    "Logistic Regression": "Pneumonia" if lr_preds == 0 else "Normal"
+                })
+            else:
+                results.append({
+                    "Image": f"Image {i + 1}",
+                    "CNN": "Error in processing",
+                    "Logistic Regression": "Error in processing"
+                })
+
+        # Display results
+        st.subheader("Prediction Results")
+        for res in results:
+            st.write(f"**{res['Image']}**")
+            st.write(f"- CNN Prediction: {res['CNN']}")
+            st.write(f"- Logistic Regression Prediction: {res['Logistic Regression']}")
+
+else:
+    st.info("Please upload one or more images to classify.")
