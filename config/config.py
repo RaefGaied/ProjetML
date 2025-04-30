@@ -13,7 +13,7 @@ PCA_TRANSFORMER_PATH = "models/pca_transformer.pkl"
 DATABASE_PATH = "database/users.db"
 
 # API Configuration
-API_BASE_URL = "http://127.0.0.1:5000"
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://projetml.onrender.com")
 
 def get_api_url(endpoint=""):
     """Get the full API URL for a given endpoint"""
