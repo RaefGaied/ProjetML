@@ -6,6 +6,15 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import streamlit as st
 import sys
 from pathlib import Path
+import requests
+from PIL import Image
+import io
+import numpy as np
+import time
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
 
 # Set page configuration at the very beginning
 st.set_page_config(
@@ -174,6 +183,33 @@ st.markdown("""
     border-radius: 50%;
     margin-bottom: 10px;
     border: 3px solid #1E88E5;
+}
+
+.main {
+    background-color: #f0f2f6;
+}
+
+.stButton>button {
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+}
+
+.error-message {
+    color: #ff0000;
+    font-weight: bold;
+}
+
+.success-message {
+    color: #008000;
+    font-weight: bold;
+}
+
+.info-message {
+    color: #0000ff;
+    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -501,3 +537,165 @@ except Exception as e:
 
 # Close the main content div
 st.markdown("</div>", unsafe_allow_html=True)
+
+def validate_image(image):
+    """Validate uploaded image"""
+    try:
+        img = Image.open(image)
+        if img.mode not in ['L', 'RGB']:
+            return False, "Please upload a grayscale or RGB image"
+        if img.size[0] < 100 or img.size[1] < 100:
+            return False, "Image is too small. Minimum size is 100x100 pixels"
+        return True, img
+    except Exception as e:
+        return False, f"Error processing image: {str(e)}"
+
+def predict_image(image):
+    """Make prediction using API"""
+    try:
+        start_time = time.time()
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+
+        API_URL = "http://127.0.0.1:5000/predict"  # Updated API URL
+        
+        files = {'file': ('image.png', img_byte_arr, 'image/png')}
+        with st.spinner('Analyzing image...'):
+            response = requests.post(API_URL, files=files)
+        
+        response_time = (time.time() - start_time) * 1000  # in milliseconds
+        
+        if response.status_code == 200:
+            return True, response.json(), response_time
+        else:
+            return False, f"API Error: {response.status_code}", response_time
+    except Exception as e:
+        return False, f"Error making prediction: {str(e)}", None
+
+def display_results(prediction, response_time):
+    """Display prediction results with enhanced visualization"""
+    probability = prediction['probability']
+    
+    # Create a more detailed visualization
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    
+    # Gauge chart
+    ax1.set_title("Pneumonia Probability")
+    ax1.set_xlim(0, 100)
+    ax1.set_ylim(0, 1)
+    ax1.axis('off')
+    
+    # Draw gauge
+    ax1.add_patch(plt.Circle((50, 0.5), 0.4, color='lightgray'))
+    ax1.add_patch(plt.Wedge((50, 0.5), 0.4, 0, probability * 100, color='red'))
+    ax1.text(50, 0.5, f"{probability*100:.1f}%", ha='center', va='center', fontsize=20)
+    
+    # Confidence intervals
+    ax2.barh(['Pneumonia', 'Normal'], 
+             [probability, 1-probability], 
+             color=['red', 'green'])
+    ax2.set_xlim(0, 1)
+    ax2.set_title("Prediction Confidence")
+    
+    st.pyplot(fig)
+    
+    # Display prediction text with styling
+    if probability > 0.8:
+        st.markdown('<p class="error-message">⚠️ High probability of pneumonia detected! Please consult a medical professional.</p>', 
+                    unsafe_allow_html=True)
+    elif probability > 0.5:
+        st.markdown('<p class="info-message">⚠️ Moderate probability of pneumonia. Consider medical consultation.</p>', 
+                    unsafe_allow_html=True)
+    else:
+        st.markdown('<p class="success-message">✅ Low probability of pneumonia detected.</p>', 
+                    unsafe_allow_html=True)
+    
+    # Additional information
+    st.markdown("""
+    ### Analysis Details
+    - **Prediction confidence**: {:.1f}%
+    - **Response time**: {:.0f}ms
+    - **Model version**: v1.0
+    - **Note**: This is a screening tool and should not be used as a final diagnosis.
+    """.format(probability*100, response_time))
+
+# Main app logic
+def main():
+    st.title("Pneumonia Detection System")
+    st.markdown("""
+    This application uses deep learning to analyze chest X-ray images and detect signs of pneumonia.
+    Upload an X-ray image below to get started.
+    """)
+    
+    # File uploader with improved UI
+    uploaded_file = st.file_uploader(
+        "Upload a chest X-ray image (PNG, JPG)", 
+        type=['png', 'jpg', 'jpeg'],
+        help="Please upload a clear chest X-ray image in PNG or JPG format"
+    )
+    
+    col1, col2 = st.columns(2)
+    
+    if uploaded_file is not None:
+        # Validate image
+        is_valid, result = validate_image(uploaded_file)
+        
+        if is_valid:
+            # Display original image
+            with col1:
+                st.subheader("Uploaded Image")
+                st.image(result, use_column_width=True)
+            
+            # Make prediction
+            success, prediction, response_time = predict_image(result)
+            
+            # Display results
+            with col2:
+                st.subheader("Analysis Results")
+                if success:
+                    display_results(prediction, response_time)
+                else:
+                    st.markdown(f'<p class="error-message">{prediction}</p>', 
+                                unsafe_allow_html=True)
+        else:
+            st.markdown(f'<p class="error-message">{result}</p>', 
+                        unsafe_allow_html=True)
+    
+    # Example section with improved UI
+    with st.expander("How to use this app", expanded=True):
+        st.markdown("""
+        ### Step-by-Step Guide
+        
+        1. **Upload an Image**
+           - Click the "Upload" button above
+           - Select a chest X-ray image from your device
+           - Supported formats: PNG, JPG
+        
+        2. **Wait for Analysis**
+           - The system will process your image
+           - Analysis typically takes a few seconds
+        
+        3. **Review Results**
+           - View the probability gauge
+           - Check the confidence intervals
+           - Read the detailed analysis
+        
+        4. **Next Steps**
+           - For high probability results, consult a medical professional
+           - Save the results for your records
+           - Share with your healthcare provider if needed
+            
+        **Note**: This tool is for screening purposes only and should not be used as a substitute for professional medical advice.
+        """)
+        
+        # Add example images
+        st.subheader("Example Images")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image("example_normal.jpg", caption="Normal X-ray", use_column_width=True)
+        with col2:
+            st.image("example_pneumonia.jpg", caption="Pneumonia X-ray", use_column_width=True)
+
+if __name__ == "__main__":
+    main()
