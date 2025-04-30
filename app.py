@@ -13,6 +13,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.session_state.user_id = ""
+    st.session_state.current_page = "Home"
+
 # Force dark theme
 st.markdown("""
 <style>
@@ -90,13 +97,6 @@ init_database()
 
 # Apply custom theme
 apply_custom_theme()
-
-# Initialize session state
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.session_state.user_id = ""
-    st.session_state.current_page = "Home"
 
 # Styles for the home page
 st.markdown("""
