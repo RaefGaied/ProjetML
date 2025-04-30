@@ -98,42 +98,50 @@ def predict():
         if 'file' not in request.files:
             return jsonify({'error': 'No image provided'}), 400
         
-        # Get the image file and model type
-        image_file = request.files['file']
-        model_type = request.args.get('model_type', 'cnn')  # Default to CNN
+        file = request.files['file']
         
         # Check if file is empty
-        if image_file.filename == '':
+        if file.filename == '':
             return jsonify({'error': 'No image selected'}), 400
+            
+        # Check if file is an image
+        if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            return jsonify({'error': 'Invalid file type. Please upload an image (PNG, JPG, JPEG)'}), 400
+            
+        # Get model type from request
+        model_type = request.args.get('model_type', 'cnn')
         
         # Open and preprocess the image
-        image = Image.open(image_file)
-        processed_image = preprocess_image(image, model_type)
-        
-        # Make prediction based on model type
-        if model_type == 'cnn':
-            if cnn_model is None:
-                return jsonify({'error': 'CNN model not loaded'}), 500
-            prediction = cnn_model.predict(processed_image)
-            probability = float(prediction[0][0])
-        else:
-            if logistic_model is None:
-                return jsonify({'error': 'Logistic Regression model not loaded'}), 500
-            prediction = logistic_model.predict_proba(processed_image)
-            probability = float(prediction[0][1])  # Assuming 1 is positive class
-        
-        # Return result
-        result = {
-            'probability': probability,
-            'has_pneumonia': probability > 0.5,
-            'confidence': f"{probability * 100:.2f}%",
-            'model_used': model_type
-        }
-        
-        return jsonify(result)
-    
+        try:
+            image = Image.open(file)
+            processed_image = preprocess_image(image, model_type)
+        except Exception as e:
+            return jsonify({'error': f'Error processing image: {str(e)}'}), 400
+            
+        # Make prediction
+        try:
+            if model_type == 'cnn':
+                if cnn_model is None:
+                    return jsonify({'error': 'CNN model not loaded'}), 500
+                prediction = cnn_model.predict(processed_image)
+                probability = float(prediction[0][0])
+            else:
+                if logistic_model is None or pca_transformer is None:
+                    return jsonify({'error': 'Logistic Regression model or PCA not loaded'}), 500
+                prediction = logistic_model.predict_proba(processed_image)
+                probability = float(prediction[0][1])
+                
+            return jsonify({
+                'probability': probability,
+                'has_pneumonia': probability > 0.5,
+                'confidence': f"{probability * 100:.2f}%"
+            })
+            
+        except Exception as e:
+            return jsonify({'error': f'Error making prediction: {str(e)}'}), 500
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
