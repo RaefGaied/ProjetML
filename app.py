@@ -24,6 +24,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Force dark theme
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #1E1E1E;
+        color: #FFFFFF;
+    }
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+    }
+    .stTextInput>div>div>input {
+        color: white;
+    }
+    .stSelectbox>div>div>select {
+        color: white;
+    }
+    .stSlider>div>div>div>div {
+        color: white;
+    }
+    .stMarkdown {
+        color: white;
+    }
+    .stTitle {
+        color: white;
+    }
+    .stSubheader {
+        color: white;
+    }
+    .stHeader {
+        color: white;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Add the src directory to the path
 sys.path.append(str(Path(__file__).parent))
 
@@ -693,9 +728,15 @@ def main():
         st.subheader("Example Images")
         col1, col2 = st.columns(2)
         with col1:
-            st.image("example_normal.jpg", caption="Normal X-ray", use_column_width=True)
+            try:
+                st.image("images/examples/normal.jpg", caption="Normal X-ray", use_container_width=True)
+            except:
+                st.info("Example normal X-ray image not available")
         with col2:
-            st.image("example_pneumonia.jpg", caption="Pneumonia X-ray", use_column_width=True)
+            try:
+                st.image("images/examples/pneumonia.jpg", caption="Pneumonia X-ray", use_container_width=True)
+            except:
+                st.info("Example pneumonia X-ray image not available")
 
 if __name__ == "__main__":
     main()
