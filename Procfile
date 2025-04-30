@@ -1,1 +1,1 @@
-web: chmod +x start.sh && ./start.sh 
+web: cd api && gunicorn --bind 0.0.0.0:$PORT app:app 
