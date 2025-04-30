@@ -68,7 +68,8 @@ sys.path.append(str(Path(__file__).parent))
 from config.config import (
     PAGE_TITLE,
     PAGE_ICON,
-    THEME_CONFIG
+    THEME_CONFIG,
+    get_api_url
 )
 from utils.utils import apply_custom_theme
 from database.database import init_database
@@ -671,68 +672,51 @@ def preprocess_image(image):
     return image_array
 
 def predict_image(image):
-    """Make prediction using the loaded model"""
+    """Make prediction using API"""
     try:
         start_time = time.time()
-        
-        # Preprocess the image
-        processed_image = preprocess_image(image)
-        
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+
         # Ajouter un sélecteur de modèle
         model_type = st.selectbox(
             "Select Model",
             ['CNN Model', 'Logistic Regression'],
             index=0
         )
+
+        # Get API URL from configuration
+        API_URL = get_api_url()
+        model_param = "cnn" if model_type == "CNN Model" else "logistic"
         
-        st.info(f"Using {model_type} for prediction...")
+        files = {'file': ('image.png', img_byte_arr, 'image/png')}
+        params = {'model_type': model_param}
         
-        if model_type == 'CNN Model':
-            # Load CNN model
-            model = load_model('cnn')
-            if model is None:
-                st.error("Failed to load CNN model")
-                return False, "CNN Model not loaded", None
-                
-            # Make prediction with CNN
-            with st.spinner('Making prediction with CNN...'):
-                prediction = model.predict(processed_image)
-                pneumonia_probability = float(prediction[0][0])
-            
-        else:
-            # Load logistic regression model and PCA
-            model, pca = load_model('logistic')
-            if model is None or pca is None:
-                st.error("Failed to load Logistic Regression model or PCA")
-                return False, "Logistic Regression Model not loaded", None
-                
-            # Flatten and transform the image
-            with st.spinner('Processing image with PCA...'):
-                flattened_image = processed_image.reshape(1, -1)
-                transformed_image = pca.transform(flattened_image)
-            
-            # Make prediction with logistic regression
-            with st.spinner('Making prediction with Logistic Regression...'):
-                prediction = model.predict_proba(transformed_image)
-                pneumonia_probability = float(prediction[0][1])  # Assuming 1 is the positive class
+        with st.spinner(f'Analyzing image with {model_type}...'):
+            response = requests.post(API_URL, files=files, params=params)
         
         response_time = (time.time() - start_time) * 1000  # in milliseconds
         
-        result = {
-            'probability': pneumonia_probability,
-            'has_pneumonia': pneumonia_probability > 0.5,
-            'confidence': f"{pneumonia_probability * 100:.2f}%" if pneumonia_probability > 0.5 else f"{(1 - pneumonia_probability) * 100:.2f}%",
-            'model_used': model_type,
-            'response_time_ms': response_time
-        }
-        
-        st.success(f"Prediction completed in {response_time:.0f}ms")
-        return True, result, response_time
-        
+        if response.status_code == 200:
+            result = response.json()
+            result['response_time_ms'] = response_time
+            return True, result, response_time
+        else:
+            error_msg = response.json().get('error', f"API Error: {response.status_code}")
+            st.error(f"API Error: {error_msg}")
+            return False, error_msg, response_time
+            
+    except requests.exceptions.ConnectionError:
+        error_msg = "Could not connect to the API. Please check if the API is running and accessible."
+        st.error(error_msg)
+        st.info("If you're using the deployed version, please wait a few minutes and try again.")
+        return False, error_msg, None
     except Exception as e:
-        st.error(f"Error during prediction: {str(e)}")
-        st.info("Please try again or contact support if the problem persists")
-        return False, f"Error making prediction: {str(e)}", None
+        error_msg = f"Error making prediction: {str(e)}"
+        st.error(error_msg)
+        st.info("Please try again or contact support if the problem persists.")
+        return False, error_msg, None
 
 def display_results(prediction, response_time):
     """Display prediction results with enhanced visualization"""

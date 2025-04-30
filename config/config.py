@@ -1,18 +1,22 @@
+import os
+
 # Page Configuration
 PAGE_TITLE = "Pneumonia Detection System"
-PAGE_ICON = "🏥"
+PAGE_ICON = "🫁"
 
 # Model Paths
 CNN_MODEL_PATH = "models/cnn_model.h5"
 LOGISTIC_REGRESSION_PATH = "models/logistic_regression_model.pkl"
+PCA_TRANSFORMER_PATH = "models/pca_transformer.pkl"
 
 # Database Configuration
 DATABASE_PATH = "database/users.db"
 
+# Theme Configuration
 THEME_CONFIG = {
-    "primaryColor": "#2196F3",  # Bleu plus vif
-    "backgroundColor": "#1E1E1E",  # Fond sombre
-    "secondaryBackgroundColor": "#2D2D2D",  # Fond secondaire sombre
-    "textColor": "#FFFFFF",  # Texte blanc
+    "primaryColor": "#1E88E5",
+    "backgroundColor": "#1E1E1E",
+    "secondaryBackgroundColor": "#2D2D2D",
+    "textColor": "#FFFFFF",
     "font": "sans serif"
 } 

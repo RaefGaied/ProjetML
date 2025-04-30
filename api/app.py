@@ -4,7 +4,7 @@ import tensorflow as tf
 from PIL import Image
 import numpy as np
 import os
-import random
+import joblib
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -13,22 +13,42 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Load the model
-model_path = os.getenv('MODEL_PATH', 'models/pneumonia_model.h5')
-model = None
+# Initialize models as None
+cnn_model = None
+logistic_model = None
+pca_transformer = None
 
-try:
-    if os.path.exists(model_path):
-        model = tf.keras.models.load_model(model_path)
-        print("Model loaded successfully!")
-    else:
-        print(f"Model not found at {model_path}. Please make sure the model file exists.")
-        print("Running in simulation mode with random predictions.")
-except Exception as e:
-    print(f"Error loading model: {str(e)}")
-    print("Running in simulation mode with random predictions.")
+def load_models():
+    """Load all models"""
+    global cnn_model, logistic_model, pca_transformer
+    
+    try:
+        # Load CNN model
+        cnn_path = os.path.join('..', 'models', 'cnn_model.h5')
+        if os.path.exists(cnn_path):
+            cnn_model = tf.keras.models.load_model(cnn_path)
+            print("CNN model loaded successfully!")
+        else:
+            print(f"CNN model not found at {cnn_path}")
+        
+        # Load Logistic Regression model and PCA
+        logistic_path = os.path.join('..', 'models', 'logistic_regression_model.pkl')
+        pca_path = os.path.join('..', 'models', 'pca_transformer.pkl')
+        
+        if os.path.exists(logistic_path) and os.path.exists(pca_path):
+            logistic_model = joblib.load(logistic_path)
+            pca_transformer = joblib.load(pca_path)
+            print("Logistic Regression model and PCA loaded successfully!")
+        else:
+            print(f"Logistic model or PCA not found at {logistic_path} or {pca_path}")
+            
+    except Exception as e:
+        print(f"Error loading models: {str(e)}")
 
-def preprocess_image(image):
+# Load models at startup
+load_models()
+
+def preprocess_image(image, model_type='cnn'):
     """Preprocess the image for model prediction"""
     # Resize image
     image = image.resize((224, 224))
@@ -36,41 +56,29 @@ def preprocess_image(image):
     image_array = np.array(image)
     # Normalize pixel values
     image_array = image_array / 255.0
-    # Add batch dimension
-    image_array = np.expand_dims(image_array, axis=0)
+    
+    if model_type == 'cnn':
+        # Add batch dimension for CNN
+        image_array = np.expand_dims(image_array, axis=0)
+    else:
+        # Flatten image for logistic regression
+        image_array = image_array.reshape(1, -1)
+        # Apply PCA transformation
+        if pca_transformer is not None:
+            image_array = pca_transformer.transform(image_array)
+            
     return image_array
-
-def generate_simulated_prediction():
-    """Generate a simulated prediction result"""
-    # Generate a random probability between 0 and 1
-    pneumonia_probability = random.uniform(0, 1)
-    
-    # Determine if the patient has pneumonia based on the probability
-    has_pneumonia = pneumonia_probability > 0.5
-    
-    # Calculate confidence
-    confidence = f"{pneumonia_probability * 100:.2f}%" if has_pneumonia else f"{(1 - pneumonia_probability) * 100:.2f}%"
-    
-    return {
-        'pneumonia_probability': pneumonia_probability,
-        'has_pneumonia': has_pneumonia,
-        'confidence': confidence
-    }
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    if model is None:
-        # Return simulated results when model is not loaded
-        print("Model not loaded. Returning simulated results.")
-        return jsonify(generate_simulated_prediction())
-        
     try:
         # Check if image is in request
-        if 'image' not in request.files:
+        if 'file' not in request.files:
             return jsonify({'error': 'No image provided'}), 400
         
-        # Get the image file
-        image_file = request.files['image']
+        # Get the image file and model type
+        image_file = request.files['file']
+        model_type = request.args.get('model_type', 'cnn')  # Default to CNN
         
         # Check if file is empty
         if image_file.filename == '':
@@ -78,19 +86,26 @@ def predict():
         
         # Open and preprocess the image
         image = Image.open(image_file)
-        processed_image = preprocess_image(image)
+        processed_image = preprocess_image(image, model_type)
         
-        # Make prediction
-        prediction = model.predict(processed_image)
+        # Make prediction based on model type
+        if model_type == 'cnn':
+            if cnn_model is None:
+                return jsonify({'error': 'CNN model not loaded'}), 500
+            prediction = cnn_model.predict(processed_image)
+            probability = float(prediction[0][0])
+        else:
+            if logistic_model is None:
+                return jsonify({'error': 'Logistic Regression model not loaded'}), 500
+            prediction = logistic_model.predict_proba(processed_image)
+            probability = float(prediction[0][1])  # Assuming 1 is positive class
         
-        # Get the probability of pneumonia
-        pneumonia_probability = float(prediction[0][0])
-        
-        # Determine the result
+        # Return result
         result = {
-            'pneumonia_probability': pneumonia_probability,
-            'has_pneumonia': pneumonia_probability > 0.5,
-            'confidence': f"{pneumonia_probability * 100:.2f}%" if pneumonia_probability > 0.5 else f"{(1 - pneumonia_probability) * 100:.2f}%"
+            'probability': probability,
+            'has_pneumonia': probability > 0.5,
+            'confidence': f"{probability * 100:.2f}%",
+            'model_used': model_type
         }
         
         return jsonify(result)
@@ -102,8 +117,11 @@ def predict():
 def health_check():
     """Health check endpoint"""
     status = {
-        'status': 'healthy' if model is not None else 'simulation',
-        'model_loaded': model is not None
+        'status': 'healthy',
+        'models': {
+            'cnn': cnn_model is not None,
+            'logistic': logistic_model is not None and pca_transformer is not None
+        }
     }
     return jsonify(status)
 
